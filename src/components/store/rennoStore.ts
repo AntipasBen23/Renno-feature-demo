@@ -126,14 +126,25 @@ function findMilestone(projects: Project[], milestoneId: string) {
   return null;
 }
 
-function updateMilestoneStatus(projects: Project[], milestoneId: string, status: MilestoneStatus) {
+function updateMilestoneStatus(
+  projects: Project[],
+  milestoneId: string,
+  status: MilestoneStatus
+): Project[] {
   return projects.map((p) => ({
     ...p,
-    milestones: p.milestones.map((m) => (m.id === milestoneId ? { ...m, status } : m)),
+    milestones: p.milestones.map((m) =>
+      m.id === milestoneId ? { ...m, status } : m
+    ),
   }));
 }
 
-function appendAudit(audit: AuditEvent[], actor: Role | "system", action: string, meta?: any) {
+function appendAudit(
+  audit: AuditEvent[],
+  actor: Role | "system",
+  action: string,
+  meta?: any
+): AuditEvent[] {
   const prevHash = audit.length ? audit[audit.length - 1].hash : undefined;
   const payload = JSON.stringify({ at: nowIso(), actor, action, meta, prevHash });
   const hash = tinyHash(payload + (prevHash ?? ""));
@@ -172,25 +183,36 @@ export const useRennoStore = create<State>()(
       ],
       disputes: [],
 
-      setRole: (role) => set((s) => ({ role, audit: appendAudit(s.audit, role, "Role switched") })),
-      setActiveProject: (projectId) => set((s) => ({ activeProjectId: projectId })),
+      setRole: (role) =>
+        set((s) => ({
+          role,
+          audit: appendAudit(s.audit, role, "Role switched"),
+        })),
+
+      setActiveProject: (projectId) =>
+        set(() => ({
+          activeProjectId: projectId,
+        })),
 
       addEvidence: (milestoneId, ev) =>
         set((s) => {
           const found = findMilestone(s.projects, milestoneId);
           if (!found) return s;
 
-          const projects = s.projects.map((p) => ({
+          const projects: Project[] = s.projects.map((p) => ({
             ...p,
-            milestones: p.milestones.map((m) =>
-              m.id === milestoneId
-                ? {
-                    ...m,
-                    status: m.status === "not_started" ? "in_progress" : m.status,
-                    evidenceIds: [...m.evidenceIds, ev.id],
-                  }
-                : m
-            ),
+            milestones: p.milestones.map((m) => {
+              if (m.id !== milestoneId) return m;
+
+              const nextStatus: MilestoneStatus =
+                m.status === "not_started" ? "in_progress" : m.status;
+
+              return {
+                ...m,
+                status: nextStatus,
+                evidenceIds: [...m.evidenceIds, ev.id],
+              };
+            }),
           }));
 
           const audit = appendAudit(s.audit, s.role, "Evidence added", {
@@ -208,18 +230,19 @@ export const useRennoStore = create<State>()(
         }),
 
       submitForVerification: async (milestoneId) => {
-        const s = get();
-        const found = findMilestone(s.projects, milestoneId);
+        const snap = get();
+        const found = findMilestone(snap.projects, milestoneId);
         if (!found) return;
 
-        // move to submitted → analyzing
+        // submitted
         set((st) => ({
           projects: updateMilestoneStatus(st.projects, milestoneId, "submitted"),
           audit: appendAudit(st.audit, st.role, "Submitted for verification", { milestoneId }),
         }));
 
-        await new Promise((r) => setTimeout(r, 450)); // tiny delay
+        await new Promise((r) => setTimeout(r, 450));
 
+        // analyzing
         set((st) => ({
           projects: updateMilestoneStatus(st.projects, milestoneId, "analyzing"),
           audit: appendAudit(st.audit, "system", "AI analysis started", { milestoneId }),
@@ -229,7 +252,6 @@ export const useRennoStore = create<State>()(
         const milestone = findMilestone(get().projects, milestoneId)?.milestone;
         if (!milestone) return;
 
-        // confidence: based on evidence count + a bit of randomness
         const evCount = milestone.evidenceIds.length;
         const base = Math.min(65 + evCount * 9, 92);
         const jitter = Math.floor((Math.random() - 0.5) * 18); // -9..+9
@@ -247,7 +269,8 @@ export const useRennoStore = create<State>()(
         if (confidence < 75) flags.push("Low confidence: lighting/angle mismatch suspected.");
         if (confidence >= 92) flags.push("High confidence: matches known completion patterns.");
 
-        const decision = confidence >= milestone.threshold ? "auto_verified" : "needs_review";
+        const decision =
+          confidence >= milestone.threshold ? ("auto_verified" as const) : ("needs_review" as const);
 
         const verificationId = uid("ver");
         const vr: VerificationResult = {
@@ -260,13 +283,18 @@ export const useRennoStore = create<State>()(
           flags,
         };
 
-        // finalize
         if (decision === "auto_verified") {
           set((st) => {
-            const projects = st.projects.map((p) => ({
+            const projects: Project[] = st.projects.map((p) => ({
               ...p,
               milestones: p.milestones.map((m) =>
-                m.id === milestoneId ? { ...m, status: "verified", verificationId } : m
+                m.id === milestoneId
+                  ? ({
+                      ...m,
+                      status: "verified" as MilestoneStatus,
+                      verificationId,
+                    })
+                  : m
               ),
             }));
 
@@ -301,29 +329,41 @@ export const useRennoStore = create<State>()(
             };
           });
 
-          // simulate payout completion
           await new Promise((r) => setTimeout(r, 900));
+
           set((st) => {
-            const ledger = st.ledger.map((l) =>
-              l.milestoneId === milestoneId ? { ...l, status: "Completed" } : l
+            const ledger: LedgerEntry[] = st.ledger.map((l) =>
+              l.milestoneId === milestoneId
+                ? { ...l, status: "Completed" as const }
+                : l
             );
+
             const projects = updateMilestoneStatus(st.projects, milestoneId, "paid");
             const audit = appendAudit(st.audit, "system", "Payout completed", { milestoneId });
+
             return { ...st, ledger, projects, audit };
           });
         } else {
           set((st) => {
-            const projects = st.projects.map((p) => ({
+            const projects: Project[] = st.projects.map((p) => ({
               ...p,
               milestones: p.milestones.map((m) =>
-                m.id === milestoneId ? { ...m, status: "needs_review", verificationId } : m
+                m.id === milestoneId
+                  ? ({
+                      ...m,
+                      status: "needs_review" as MilestoneStatus,
+                      verificationId,
+                    })
+                  : m
               ),
             }));
+
             const audit = appendAudit(st.audit, "system", "AI decision: needs review", {
               milestoneId,
               confidence,
               threshold: milestone.threshold,
             });
+
             return {
               ...st,
               projects,
@@ -340,7 +380,8 @@ export const useRennoStore = create<State>()(
           if (!found) return s;
 
           const milestone = found.milestone;
-          const projects = updateMilestoneStatus(s.projects, milestoneId, "verified");
+
+          let projects = updateMilestoneStatus(s.projects, milestoneId, "verified");
 
           const ledgerEntry: LedgerEntry = {
             id: uid("led"),
@@ -360,9 +401,9 @@ export const useRennoStore = create<State>()(
           });
 
           // immediately paid for demo
-          const paidProjects = updateMilestoneStatus(projects, milestoneId, "paid");
+          projects = updateMilestoneStatus(projects, milestoneId, "paid");
 
-          return { ...s, projects: paidProjects, ledger: [ledgerEntry, ...s.ledger], audit };
+          return { ...s, projects, ledger: [ledgerEntry, ...s.ledger], audit };
         }),
 
       openDispute: (milestoneId, reason) =>
@@ -390,11 +431,12 @@ export const useRennoStore = create<State>()(
           const dispute = s.disputes.find((d) => d.id === disputeId);
           if (!dispute) return s;
 
-          const disputes = s.disputes.map((d) =>
-            d.id === disputeId ? { ...d, status: "resolved", resolution } : d
+          const disputes: Dispute[] = s.disputes.map((d) =>
+            d.id === disputeId
+              ? { ...d, status: "resolved" as const, resolution }
+              : d
           );
 
-          // send milestone back to needs_review for demo
           const projects = updateMilestoneStatus(s.projects, dispute.milestoneId, "needs_review");
           const audit = appendAudit(s.audit, s.role, "Dispute resolved", { disputeId, resolution });
 

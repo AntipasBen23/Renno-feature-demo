@@ -1,6 +1,6 @@
 "use client";
 
-import { useRennoStore } from "@/store/rennoStore";
+import { useRennoStore } from "../store/rennoStore";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 

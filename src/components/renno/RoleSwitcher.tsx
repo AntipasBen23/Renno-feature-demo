@@ -1,6 +1,6 @@
 "use client";
 
-import { useRennoStore } from "@/store/rennoStore";
+import { useRennoStore } from "../store/rennoStore";
 import { Select } from "@/components/ui/select";
 import type { Role } from "./types";
 

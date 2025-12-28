@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useRennoStore } from "@/store/rennoStore";
+import { useRennoStore } from "../store/rennoStore";
 import RoleSwitcher from "./RoleSwitcher";
 import ProjectBoard from "./ProjectBoard";
 import { Tabs } from "@/components/ui/tabs";

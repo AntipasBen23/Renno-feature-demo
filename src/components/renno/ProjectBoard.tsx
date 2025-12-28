@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRennoStore } from "@/store/rennoStore";
+import { useRennoStore } from "../store/rennoStore";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import MilestoneCard from "./MilestoneCard";
