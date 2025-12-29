@@ -1,14 +1,31 @@
 "use client";
 
-export default function VerificationHistory() {
-  const history = [
+interface VerificationRecord {
+  id: number;
+  milestone: string;
+  date: string;
+  time: string;
+  score: number;
+  status: "verified" | "disputed";
+  contractor: string;
+  payment: number;
+  images: number;
+}
+
+interface VerificationHistoryProps {
+  history: VerificationRecord[];
+}
+
+export default function VerificationHistory({ history }: VerificationHistoryProps) {
+  // Static initial history (shown when no uploads yet)
+  const initialHistory = [
     {
       id: 1,
       milestone: "Foundation & Concrete",
-      date: "Dec 14, 2025",
+      date: "14 Dec, 2025",
       time: "14:32",
       score: 92,
-      status: "verified",
+      status: "verified" as const,
       contractor: "BuildPro NL",
       payment: 8500,
       images: 4,
@@ -16,10 +33,10 @@ export default function VerificationHistory() {
     {
       id: 2,
       milestone: "Plumbing Rough-In",
-      date: "Dec 21, 2025",
+      date: "21 Dec, 2025",
       time: "09:15",
       score: 88,
-      status: "verified",
+      status: "verified" as const,
       contractor: "BuildPro NL",
       payment: 6200,
       images: 6,
@@ -27,15 +44,22 @@ export default function VerificationHistory() {
     {
       id: 3,
       milestone: "Foundation Inspection",
-      date: "Dec 10, 2025",
+      date: "10 Dec, 2025",
       time: "16:45",
       score: 73,
-      status: "disputed",
+      status: "disputed" as const,
       contractor: "BuildPro NL",
       payment: 0,
       images: 3,
     },
   ];
+
+  // Combine new uploads with initial history
+  const allHistory = [...history, ...initialHistory];
+
+  const verifiedCount = allHistory.filter(h => h.status === "verified").length;
+  const disputedCount = allHistory.filter(h => h.status === "disputed").length;
+  const totalPaid = allHistory.reduce((sum, h) => sum + h.payment, 0) / 1000;
 
   return (
     <div className="space-y-4">
@@ -43,15 +67,15 @@ export default function VerificationHistory() {
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
           <p className="text-sm text-green-700 font-medium">Verified</p>
-          <p className="text-3xl font-bold text-green-900">2</p>
+          <p className="text-3xl font-bold text-green-900">{verifiedCount}</p>
         </div>
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <p className="text-sm text-yellow-700 font-medium">Disputed</p>
-          <p className="text-3xl font-bold text-yellow-900">1</p>
+          <p className="text-3xl font-bold text-yellow-900">{disputedCount}</p>
         </div>
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <p className="text-sm text-blue-700 font-medium">Total Paid</p>
-          <p className="text-3xl font-bold text-blue-900">€14.7k</p>
+          <p className="text-3xl font-bold text-blue-900">€{totalPaid.toFixed(1)}k</p>
         </div>
       </div>
 
@@ -62,7 +86,7 @@ export default function VerificationHistory() {
         </div>
 
         <div className="divide-y divide-gray-200">
-          {history.map((item) => (
+          {allHistory.map((item) => (
             <div key={item.id} className="p-6 hover:bg-gray-50 transition-colors">
               <div className="flex items-start justify-between">
                 {/* Left Section */}
