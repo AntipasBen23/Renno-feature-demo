@@ -1,9 +1,53 @@
 "use client";
 
 import { useState } from "react";
+import ImageUpload from "@/components/ImageUpload";
+import AnalysisLoader from "@/components/AnalysisLoader";
+import VerificationResults from "@/components/VerificationResults";
+import DisputeModal from "@/components/DisputeModal";
+import CashFlowTimeline from "@/components/CashFlowTimeline";
+import VerificationHistory from "@/components/VerificationHistory";
+import { analyzeImage, type AnalysisResult } from "@/lib/aiAnalysis";
+
+type AnalysisStage = "idle" | "uploading" | "extracting" | "analyzing" | "complete";
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("upload");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [analysisStage, setAnalysisStage] = useState<AnalysisStage>("idle");
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [showDisputeModal, setShowDisputeModal] = useState(false);
+
+  const handleImageSelect = async (file: File) => {
+    setSelectedFile(file);
+    setAnalysisResult(null);
+    
+    // Create preview URL
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+
+    // Start analysis simulation
+    setAnalysisStage("uploading");
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    setAnalysisStage("extracting");
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    setAnalysisStage("analyzing");
+    const result = await analyzeImage(file);
+    
+    setAnalysisStage("complete");
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    setAnalysisResult(result);
+    setAnalysisStage("idle");
+
+    // Auto-open dispute modal if score is low
+    if (result.score < 85) {
+      setTimeout(() => setShowDisputeModal(true), 1000);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -22,7 +66,9 @@ export default function DashboardPage() {
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">Project: Kitchen Renovation - Amsterdam</span>
-              <div className="w-8 h-8 bg-gray-200 rounded-full"></div>
+              <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                <span className="text-gray-600 text-xs font-medium">MS</span>
+              </div>
             </div>
           </div>
         </div>
@@ -69,42 +115,43 @@ export default function DashboardPage() {
       {/* Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === "upload" && (
-          <div className="bg-white rounded-lg shadow p-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Upload Milestone Photo</h2>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-orange-500 transition-colors cursor-pointer">
-              <svg
-                className="mx-auto h-12 w-12 text-gray-400"
-                stroke="currentColor"
-                fill="none"
-                viewBox="0 0 48 48"
-              >
-                <path
-                  d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              <p className="mt-2 text-sm text-gray-600">Click to upload or drag and drop</p>
-              <p className="text-xs text-gray-500">PNG, JPG up to 10MB</p>
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow p-8">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Upload Milestone Photo</h2>
+              <ImageUpload onImageSelect={handleImageSelect} />
             </div>
+
+            {analysisStage !== "idle" && (
+              <AnalysisLoader stage={analysisStage} />
+            )}
+
+            {analysisResult && (
+              <VerificationResults
+                score={analysisResult.score}
+                confidence={analysisResult.confidence}
+                issues={analysisResult.issues}
+                detectedItems={analysisResult.detectedItems}
+                timestamp={analysisResult.timestamp}
+                location={analysisResult.location}
+              />
+            )}
           </div>
         )}
 
-        {activeTab === "cashflow" && (
-          <div className="bg-white rounded-lg shadow p-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Predictive Cash Flow</h2>
-            <p className="text-gray-500">Timeline visualization coming soon...</p>
-          </div>
-        )}
+        {activeTab === "cashflow" && <CashFlowTimeline />}
 
-        {activeTab === "history" && (
-          <div className="bg-white rounded-lg shadow p-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Verification History</h2>
-            <p className="text-gray-500">Past verifications will appear here...</p>
-          </div>
-        )}
+        {activeTab === "history" && <VerificationHistory />}
       </main>
+
+      {/* Dispute Modal */}
+      {showDisputeModal && previewUrl && analysisResult && (
+        <DisputeModal
+          isOpen={showDisputeModal}
+          onClose={() => setShowDisputeModal(false)}
+          score={analysisResult.score}
+          imageSrc={previewUrl}
+        />
+      )}
     </div>
   );
 }
