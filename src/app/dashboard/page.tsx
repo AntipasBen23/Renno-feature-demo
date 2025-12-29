@@ -11,6 +11,18 @@ import { analyzeImage, type AnalysisResult } from "@/lib/aiAnalysis";
 
 type AnalysisStage = "idle" | "uploading" | "extracting" | "analyzing" | "complete";
 
+interface VerificationRecord {
+  id: number;
+  milestone: string;
+  date: string;
+  time: string;
+  score: number;
+  status: "verified" | "disputed";
+  contractor: string;
+  payment: number;
+  images: number;
+}
+
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("upload");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -18,6 +30,8 @@ export default function DashboardPage() {
   const [analysisStage, setAnalysisStage] = useState<AnalysisStage>("idle");
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [showDisputeModal, setShowDisputeModal] = useState(false);
+  const [verificationHistory, setVerificationHistory] = useState<VerificationRecord[]>([]);
+  const [completedMilestones, setCompletedMilestones] = useState(2); // Start with 2 completed
 
   const handleImageSelect = async (file: File) => {
     setSelectedFile(file);
@@ -42,6 +56,34 @@ export default function DashboardPage() {
     
     setAnalysisResult(result);
     setAnalysisStage("idle");
+
+    // Add to verification history
+    const now = new Date();
+    const milestoneNames = [
+      "Electrical & Drywall",
+      "Kitchen Installation",
+      "Flooring & Finishes",
+      "Painting & Touch-ups",
+    ];
+    
+    const newRecord: VerificationRecord = {
+      id: Date.now(),
+      milestone: milestoneNames[completedMilestones] || "Additional Work",
+      date: now.toLocaleDateString("nl-NL", { day: "2-digit", month: "short", year: "numeric" }),
+      time: now.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" }),
+      score: result.score,
+      status: result.score >= 85 ? "verified" : "disputed",
+      contractor: "BuildPro NL",
+      payment: result.score >= 85 ? 12000 : 0,
+      images: 1,
+    };
+
+    setVerificationHistory(prev => [newRecord, ...prev]);
+
+    // Update completed milestones if verified
+    if (result.score >= 85) {
+      setCompletedMilestones(prev => prev + 1);
+    }
 
     // Auto-open dispute modal if score is low
     if (result.score < 85) {
@@ -138,9 +180,13 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {activeTab === "cashflow" && <CashFlowTimeline />}
+        {activeTab === "cashflow" && (
+          <CashFlowTimeline completedMilestones={completedMilestones} />
+        )}
 
-        {activeTab === "history" && <VerificationHistory />}
+        {activeTab === "history" && (
+          <VerificationHistory history={verificationHistory} />
+        )}
       </main>
 
       {/* Dispute Modal */}
