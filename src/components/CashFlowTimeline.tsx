@@ -1,12 +1,14 @@
 "use client";
 
-export default function CashFlowTimeline() {
-  const milestones = [
+interface CashFlowTimelineProps {
+  completedMilestones: number;
+}
+
+export default function CashFlowTimeline({ completedMilestones }: CashFlowTimelineProps) {
+  const allMilestones = [
     {
       id: 1,
       name: "Foundation & Concrete",
-      status: "completed",
-      progress: 100,
       payment: 8500,
       dueDate: "Dec 15, 2025",
       completedDate: "Dec 14, 2025",
@@ -14,8 +16,6 @@ export default function CashFlowTimeline() {
     {
       id: 2,
       name: "Plumbing Rough-In",
-      status: "completed",
-      progress: 100,
       payment: 6200,
       dueDate: "Dec 22, 2025",
       completedDate: "Dec 21, 2025",
@@ -23,8 +23,6 @@ export default function CashFlowTimeline() {
     {
       id: 3,
       name: "Electrical & Drywall",
-      status: "in-progress",
-      progress: 67,
       payment: 12000,
       dueDate: "Jan 5, 2026",
       predictedDate: "Jan 8, 2026",
@@ -32,15 +30,39 @@ export default function CashFlowTimeline() {
     {
       id: 4,
       name: "Kitchen Installation",
-      status: "pending",
-      progress: 0,
       payment: 15000,
       dueDate: "Jan 18, 2026",
       predictedDate: "Jan 20, 2026",
     },
   ];
 
-  const totalBudget = milestones.reduce((sum, m) => sum + m.payment, 0);
+  // Dynamically determine milestone status based on completedMilestones
+  const milestones = allMilestones.map((m, index) => {
+    if (index < completedMilestones) {
+      return {
+        ...m,
+        status: "completed" as const,
+        progress: 100,
+        completedDate: m.completedDate || new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+      };
+    } else if (index === completedMilestones) {
+      return {
+        ...m,
+        status: "in-progress" as const,
+        progress: 67,
+        predictedDate: m.predictedDate,
+      };
+    } else {
+      return {
+        ...m,
+        status: "pending" as const,
+        progress: 0,
+        predictedDate: m.predictedDate,
+      };
+    }
+  });
+
+  const totalBudget = allMilestones.reduce((sum, m) => sum + m.payment, 0);
   const completedPayments = milestones
     .filter((m) => m.status === "completed")
     .reduce((sum, m) => sum + m.payment, 0);
